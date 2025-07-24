@@ -1,146 +1,147 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <title>Peta Interaktif Usaha Lokal</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Leaflet CSS -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Peta Interaktif Usaha</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <!-- Sidebar CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-sidebar-v2/css/leaflet-sidebar.min.css" />
   <style>
     html, body, #map {
       height: 100%;
       margin: 0;
     }
-    .sidebar-content {
+    #sidebar {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 1000;
+      width: 300px;
+      max-height: 90%;
       overflow-y: auto;
-      max-height: 90vh;
+      box-shadow: 0 0 5px rgba(0,0,0,0.3);
     }
-    .sidebar-item {
-      margin: 10px 0;
+    #toggleSidebar {
+      position: absolute;
+      top: 10px;
+      left: 320px;
+      z-index: 1001;
+      background: #fff;
+      border: none;
+      padding: 5px 10px;
       cursor: pointer;
     }
   </style>
 </head>
 <body>
 
+<div id="sidebar">
+  <h3>Daftar Usaha</h3>
+  <ul id="data-list"></ul>
+</div>
+<button id="toggleSidebar">Tutup</button>
 <div id="map"></div>
 
-<!-- Sidebar -->
-<div id="sidebar" class="leaflet-sidebar collapsed">
-  <div class="leaflet-sidebar-tabs">
-    <ul role="tablist">
-      <li><a href="#list" role="tab"><i class="fa fa-bars"></i></a></li>
-    </ul>
-  </div>
-
-  <div class="leaflet-sidebar-content">
-    <div class="leaflet-sidebar-pane" id="list">
-      <h1 class="leaflet-sidebar-header">Daftar Usaha
-        <span class="leaflet-sidebar-close"><i class="fa fa-times"></i></span>
-      </h1>
-      <div id="usaha-list" class="sidebar-content"></div>
-    </div>
-  </div>
-</div>
-
-<!-- Leaflet JS + Plugins -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-sidebar-v2/js/leaflet-sidebar.min.js"></script>
-<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
-
+<script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js" charset="utf-8"></script>
 <script>
-// Inisialisasi peta
-var map = L.map('map').setView([-7.2, 107.9], 10);
+  // Inisialisasi Peta
+  const map = L.map('map').setView([-7.2, 107.9], 10);
 
-// Basemaps
-var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OSM'
-}).addTo(map);
+  // Layer Basemap
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
 
-var sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-  attribution: '© Esri'
-});
-
-var terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenTopoMap'
-});
-
-var baseMaps = {
-  "OpenStreetMap": osm,
-  "Satelit": sat,
-  "Medan": terrain
-};
-L.control.layers(baseMaps).addTo(map);
-
-// Sidebar
-var sidebar = L.control.sidebar('sidebar').addTo(map);
-
-// Lokasi pengguna
-map.locate({setView: true, maxZoom: 14});
-function onLocationFound(e) {
-  L.marker(e.latlng).addTo(map)
-    .bindPopup("Lokasi Anda Sekarang").openPopup();
-}
-map.on('locationfound', onLocationFound);
-
-// Data CSV (dari ekspor manual ke JSON atau konversi sebelumnya)
-const data = [
-  {
-    "NAMA USAHA": "Usaha A",
-    "JENIS": "Makanan",
-    "BARANG UNGGULAN": "Bakso",
-    "ALAMAT": "Jalan Mawar",
-    "NAMA PEMILIK": "Budi",
-    "No. TLP": "08123456789",
-    "Media Promosi": "IG",
-    "LONGITUDE": 107.919,
-    "LATITUDE": -7.210,
-    "JENIS WILAYAH BANGUNAN": "TOKO BANGUNAN WILAYAH UTARA"
-  },
-  {
-    "NAMA USAHA": "Usaha B",
-    "JENIS": "Kerajinan",
-    "BARANG UNGGULAN": "Anyaman Bambu",
-    "ALAMAT": "Jalan Melati",
-    "NAMA PEMILIK": "Siti",
-    "No. TLP": "08129876543",
-    "Media Promosi": "FB",
-    "LONGITUDE": 107.95,
-    "LATITUDE": -7.225,
-    "JENIS WILAYAH BANGUNAN": "TOKO/SUPLIER BAHAN KAYU, BESI, PAVING DLL"
-  }
-];
-
-// Tambahkan marker & isi sidebar
-data.forEach((d, i) => {
-  const marker = L.marker([d.LATITUDE, d.LONGITUDE]).addTo(map);
-
-  const popupContent = `
-    <b>${d["NAMA USAHA"]}</b><br>
-    Jenis: ${d["JENIS"]}<br>
-    Barang Unggulan: ${d["BARANG UNGGULAN"]}<br>
-    Alamat: ${d["ALAMAT"]}<br>
-    Pemilik: ${d["NAMA PEMILIK"]}<br>
-    No. HP: ${d["No. TLP"]}<br>
-    Promosi: ${d["Media Promosi"]}<br>
-    Wilayah: ${d["JENIS WILAYAH BANGUNAN"]}<br><br>
-    <a href="https://www.google.com/maps/dir/?api=1&destination=${d.LATITUDE},${d.LONGITUDE}" target="_blank">
-      <button>Rute ke Lokasi</button>
-    </a>
-  `;
-  marker.bindPopup(popupContent);
-
-  const itemHTML = `
-    <div class="sidebar-item" onclick="map.setView([${d.LATITUDE}, ${d.LONGITUDE}], 16);">
-      <b>${d["NAMA USAHA"]}</b><br>${d["JENIS"]} - ${d["Media Promosi"]}
-    </div>
-  `;
-  document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById("usaha-list").innerHTML += itemHTML;
+  const satellite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+    subdomains:['mt0','mt1','mt2','mt3'],
+    attribution: 'Google Satellite'
   });
-});
+
+  const terrain = L.tileLayer('https://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
+    subdomains:['mt0','mt1','mt2','mt3'],
+    attribution: 'Google Terrain'
+  });
+
+  const baseMaps = {
+    "OpenStreetMap": osm,
+    "Satelit": satellite,
+    "Medan": terrain
+  };
+
+  L.control.layers(baseMaps).addTo(map);
+
+  // Lokasi Terkini
+  L.control.locate({
+    position: 'topleft',
+    strings: {
+      title: "Tampilkan lokasi saya"
+    }
+  }).addTo(map);
+
+  // Sidebar Toggle
+  const sidebar = document.getElementById("sidebar");
+  const toggleBtn = document.getElementById("toggleSidebar");
+  toggleBtn.onclick = function () {
+    if (sidebar.style.display === "none") {
+      sidebar.style.display = "block";
+      toggleBtn.innerText = "Tutup";
+    } else {
+      sidebar.style.display = "none";
+      toggleBtn.innerText = "Buka";
+    }
+  };
+
+  // Load CSV data
+  fetch("data.csv")
+    .then(response => response.text())
+    .then(csv => {
+      const lines = csv.split("\n").slice(1); // Skip header
+      const list = document.getElementById("data-list");
+
+      lines.forEach((line, index) => {
+        const cols = line.split(",");
+
+        if (cols.length < 11) return; // skip jika tidak lengkap
+
+        const nama = cols[1];
+        const jenis = cols[2];
+        const unggulan = cols[3];
+        const alamat = cols[4];
+        const pemilik = cols[5];
+        const telp = cols[6];
+        const promosi = cols[7];
+        const lon = parseFloat(cols[8]);
+        const lat = parseFloat(cols[9]);
+        const wilayah = cols[10];
+
+        if (isNaN(lat) || isNaN(lon)) return;
+
+        const marker = L.marker([lat, lon]).addTo(map).bindPopup(`
+          <b>${nama}</b><br/>
+          Jenis: ${jenis}<br/>
+          Barang Unggulan: ${unggulan}<br/>
+          Alamat: ${alamat}<br/>
+          Pemilik: ${pemilik}<br/>
+          No. TLP: ${telp}<br/>
+          Media Promosi: ${promosi}<br/>
+          Jenis Wilayah Bangunan: ${wilayah}<br/>
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank">Rute ke Lokasi</a>
+        `);
+
+        // Tambahkan ke sidebar
+        const li = document.createElement("li");
+        li.innerHTML = `<a href="#" onclick="zoomTo(${lat}, ${lon})">${nama}</a>`;
+        list.appendChild(li);
+      });
+    });
+
+  // Fungsi zoom dari sidebar
+  function zoomTo(lat, lon) {
+    map.setView([lat, lon], 17);
+  }
 </script>
 
 </body>

@@ -1,14 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Peta Interaktif UMKM</title>
+  <title>Peta Interaktif UMKM & Batas</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet-sidebar-v2/css/leaflet-sidebar.min.css" />
   <style>
-    body, html { margin: 0; padding: 0; height: 100%; }
-    #map { height: 100vh; }
+    html, body, #map { height: 100%; margin: 0; padding: 0; }
     .leaflet-sidebar .sidebar-content ul {
       list-style: none;
       padding-left: 15px;
@@ -38,38 +37,25 @@
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-sidebar-v2/js/leaflet-sidebar.min.js"></script>
-  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://unpkg.com/leaflet-ajax"></script>
 
   <script>
-    var map = L.map('map').setView([-7.3, 107.8], 11);
+    var map = L.map('map').setView([-7.3, 107.8], 10);
 
     // Basemap
-    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(map);
-    var sat = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-      subdomains:['mt0','mt1','mt2','mt3'],
-      attribution: '© Google Satellite'
-    });
-    var terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenTopoMap'
-    });
-    L.control.layers({
-      "OSM": osm,
-      "Satelit": sat,
-      "Medan": terrain
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OSM Contributors'
     }).addTo(map);
 
+    // Sidebar
     var sidebar = L.control.sidebar({ container: 'sidebar' }).addTo(map);
     sidebar.show();
 
-    // Lokasi saat ini seperti Google Maps
+    // Lokasi saat ini
     map.locate({ setView: true, watch: true, maxZoom: 16 });
     var userMarker, accuracyCircle;
     map.on("locationfound", function (e) {
-      if (userMarker) {
-        userMarker.setLatLng(e.latlng);
-        accuracyCircle.setLatLng(e.latlng).setRadius(e.accuracy);
-      } else {
+      if (!userMarker) {
         userMarker = L.marker(e.latlng, {
           icon: L.icon({
             iconUrl: 'https://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png',
@@ -84,45 +70,57 @@
           fillColor: '#136aec',
           fillOpacity: 0.2
         }).addTo(map);
+      } else {
+        userMarker.setLatLng(e.latlng);
+        accuracyCircle.setLatLng(e.latlng).setRadius(e.accuracy);
       }
     });
 
-    // Muat CSV
-    fetch('data.csv')
-      .then(response => response.text())
-      .then(csvText => {
-        Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          complete: function(results) {
-            const data = results.data;
-            const sidebarList = document.getElementById("sidebar-list");
+    // Layer UMKM dari GeoJSON
+    fetch("Data.geojson")
+      .then(res => res.json())
+      .then(data => {
+        const sidebarList = document.getElementById("sidebar-list");
+        L.geoJSON(data, {
+          pointToLayer: function (feature, latlng) {
+            const props = feature.properties;
+            let popupContent = "<b>Detail UMKM:</b><br>";
+            for (let key in props) {
+              popupContent += `<b>${key}</b>: ${props[key]}<br>`;
+            }
 
-            data.forEach((d, i) => {
-              const lat = parseFloat(d.latitude);
-              const lon = parseFloat(d.longitude);
-              if (isNaN(lat) || isNaN(lon)) return;
+            const marker = L.marker(latlng).bindPopup(popupContent);
 
-              const marker = L.marker([lat, lon]).addTo(map)
-                .bindPopup(`
-                  <b>${d.nama_usaha}</b><br>
-                  Jenis: ${d.jenis_usaha}<br>
-                  Barang Unggulan: ${d.barang_unggulan}<br>
-                  Alamat: ${d.alamat}<br>
-                  Pemilik: ${d.pemilik}<br>
-                  No Telp: ${d.no_telp}<br>
-                  Media Promosi: ${d.media_promosi}<br>
-                  Jenis Wilayah Bangunan: ${d.jenis_wilayah_bangunan}<br>
-                  <a target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}">📍 Rute ke sini</a>
-                `);
+            const li = document.createElement("li");
+            li.textContent = props.nama_usaha || "UMKM";
+            li.onclick = () => {
+              map.setView(latlng, 16);
+              marker.openPopup();
+            };
+            sidebarList.appendChild(li);
 
-              const listItem = document.createElement("li");
-              listItem.textContent = `${i + 1}. ${d.nama_usaha}`;
-              listItem.onclick = () => map.setView([lat, lon], 16);
-              sidebarList.appendChild(listItem);
-            });
+            return marker;
           }
-        });
+        }).addTo(map);
+      });
+
+    // Layer Batas Administrasi
+    fetch("Batas Administrasi.geojson")
+      .then(res => res.json())
+      .then(data => {
+        L.geoJSON(data, {
+          style: {
+            color: "red",
+            weight: 2
+          },
+          onEachFeature: function (feature, layer) {
+            let popupContent = "<b>Informasi Wilayah:</b><br>";
+            for (let key in feature.properties) {
+              popupContent += `<b>${key}</b>: ${feature.properties[key]}<br>`;
+            }
+            layer.bindPopup(popupContent);
+          }
+        }).addTo(map);
       });
   </script>
 </body>

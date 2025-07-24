@@ -42,77 +42,88 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
   <script>
-  // Inisialisasi peta
-  var map = L.map('map').setView([-7.3, 107.8], 11);
+    var map = L.map('map').setView([-7.3, 107.8], 11);
 
-  // Basemap
-  var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(map);
-  var sat = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-    subdomains:['mt0','mt1','mt2','mt3'],
-    attribution: '© Google Satellite'
-  });
-  var terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenTopoMap'
-  });
-  L.control.layers({
-    "OSM": osm,
-    "Satelit": sat,
-    "Medan": terrain
-  }).addTo(map);
-
-  // Sidebar
-  var sidebar = L.control.sidebar({ container: 'sidebar' }).addTo(map);
-  sidebar.show();
-
-  // Lokasi saat ini
-  map.locate({ setView: true, maxZoom: 16 });
-  map.on('locationfound', function(e) {
-    L.marker(e.latlng, {
-      icon: L.icon({
-        iconUrl: 'https://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png',
-        iconSize: [32, 32],
-        iconAnchor: [16, 32]
-      })
-    }).addTo(map).bindPopup("📍 Lokasi Anda").openPopup();
-  });
-
-  // Fungsi muat CSV
-  fetch('data.csv')
-    .then(response => response.text())
-    .then(csvText => {
-      Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-          const data = results.data;
-          const sidebarList = document.getElementById("sidebar-list");
-
-          data.forEach((d, i) => {
-            const lat = parseFloat(d.latitude);
-            const lon = parseFloat(d.longitude);
-            if (isNaN(lat) || isNaN(lon)) return;
-
-            const marker = L.marker([lat, lon]).addTo(map)
-              .bindPopup(`
-                <b>${d.nama_usaha}</b><br>
-                Jenis: ${d.jenis_usaha}<br>
-                Unggulan: ${d.barang_unggulan}<br>
-                Alamat: ${d.alamat}<br>
-                Pemilik: ${d.pemilik}<br>
-                Telp: ${d.no_telp}<br>
-                Media Promosi: ${d.media_promosi}<br>
-                Jenis Wilayah Bangunan: ${d.jenis_wilayah_bangunan}<br>
-                <a target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}">📍 Rute ke sini</a>
-              `);
-
-            const listItem = document.createElement("li");
-            listItem.innerHTML = `${i + 1}. ${d.nama_usaha}`;
-            listItem.onclick = () => map.setView([lat, lon], 16);
-            sidebarList.appendChild(listItem);
-          });
-        }
-      });
+    // Basemap
+    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(map);
+    var sat = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+      subdomains:['mt0','mt1','mt2','mt3'],
+      attribution: '© Google Satellite'
     });
+    var terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenTopoMap'
+    });
+    L.control.layers({
+      "OSM": osm,
+      "Satelit": sat,
+      "Medan": terrain
+    }).addTo(map);
+
+    var sidebar = L.control.sidebar({ container: 'sidebar' }).addTo(map);
+    sidebar.show();
+
+    // Lokasi saat ini seperti Google Maps
+    map.locate({ setView: true, watch: true, maxZoom: 16 });
+    var userMarker, accuracyCircle;
+    map.on("locationfound", function (e) {
+      if (userMarker) {
+        userMarker.setLatLng(e.latlng);
+        accuracyCircle.setLatLng(e.latlng).setRadius(e.accuracy);
+      } else {
+        userMarker = L.marker(e.latlng, {
+          icon: L.icon({
+            iconUrl: 'https://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32]
+          })
+        }).addTo(map).bindPopup("📍 Lokasi Anda").openPopup();
+
+        accuracyCircle = L.circle(e.latlng, {
+          radius: e.accuracy,
+          color: '#136aec',
+          fillColor: '#136aec',
+          fillOpacity: 0.2
+        }).addTo(map);
+      }
+    });
+
+    // Muat CSV
+    fetch('data.csv')
+      .then(response => response.text())
+      .then(csvText => {
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: function(results) {
+            const data = results.data;
+            const sidebarList = document.getElementById("sidebar-list");
+
+            data.forEach((d, i) => {
+              const lat = parseFloat(d.latitude);
+              const lon = parseFloat(d.longitude);
+              if (isNaN(lat) || isNaN(lon)) return;
+
+              const marker = L.marker([lat, lon]).addTo(map)
+                .bindPopup(`
+                  <b>${d.nama_usaha}</b><br>
+                  Jenis: ${d.jenis_usaha}<br>
+                  Barang Unggulan: ${d.barang_unggulan}<br>
+                  Alamat: ${d.alamat}<br>
+                  Pemilik: ${d.pemilik}<br>
+                  No Telp: ${d.no_telp}<br>
+                  Media Promosi: ${d.media_promosi}<br>
+                  Jenis Wilayah Bangunan: ${d.jenis_wilayah_bangunan}<br>
+                  <a target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}">📍 Rute ke sini</a>
+                `);
+
+              const listItem = document.createElement("li");
+              listItem.textContent = `${i + 1}. ${d.nama_usaha}`;
+              listItem.onclick = () => map.setView([lat, lon], 16);
+              sidebarList.appendChild(listItem);
+            });
+          }
+        });
+      });
   </script>
 </body>
 </html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Peta Interaktif UMKM</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-sidebar-v2/css/leaflet-sidebar.min.css"/>
+
+  <style>
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+    }
+    .sidebar-content {
+      overflow-y: auto;
+      height: 100%;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="sidebar" class="leaflet-sidebar collapsed">
+  <div class="leaflet-sidebar-tabs">
+    <ul role="tablist">
+      <li><a href="#home" role="tab"><i class="fa fa-bars"></i></a></li>
+    </ul>
+  </div>
+  <div class="leaflet-sidebar-content">
+    <div class="leaflet-sidebar-pane" id="home">
+      <h1 class="leaflet-sidebar-header">Daftar UMKM<span class="leaflet-sidebar-close"><i class="fa fa-caret-left"></i></span></h1>
+      <div id="data-list" class="sidebar-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+<script src="https://unpkg.com/leaflet-sidebar-v2/js/leaflet-sidebar.min.js"></script>
+<script src="https://unpkg.com/papaparse@5.3.2/papaparse.min.js"></script>
+<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+
+<script>
+  const map = L.map('map').setView([-7.5, 108.2], 10);
+
+  // Base layers
+  const baseLayers = {
+    "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }),
+    "Satelit": L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+      attribution: '&copy; Google Satellite'
+    }),
+    "Medan": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenTopoMap contributors'
+    })
+  };
+  baseLayers["OpenStreetMap"].addTo(map);
+  L.control.layers(baseLayers).addTo(map);
+
+  // Lokasi pengguna
+  map.locate({setView: true, maxZoom: 16});
+  function onLocationFound(e) {
+    const radius = e.accuracy;
+    L.marker(e.latlng).addTo(map).bindPopup("Lokasi Anda").openPopup();
+    L.circle(e.latlng, radius).addTo(map);
+  }
+  map.on('locationfound', onLocationFound);
+
+  // Sidebar
+  const sidebar = L.control.sidebar({ container: 'sidebar' }).addTo(map);
+
+  // Fetch CSV
+  fetch('data.csv')
+    .then(response => response.text())
+    .then(csvText => {
+      const data = Papa.parse(csvText, { header: true }).data;
+
+      data.forEach((row, index) => {
+        const lat = parseFloat(row["LATITUDE"]);
+        const lon = parseFloat(row["LONGITUDE"]);
+
+        if (!isNaN(lat) && !isNaN(lon)) {
+          const marker = L.marker([lat, lon]).addTo(map);
+
+          const popupContent = `
+            <b>${row["NAMA USAHA"]}</b><br/>
+            Jenis: ${row["JENIS"]}<br/>
+            Barang: ${row["BARANG UNGGULAN"]}<br/>
+            Pemilik: ${row["NAMA PEMILIK"]}<br/>
+            Alamat: ${row["ALAMAT"]}<br/>
+            Telepon: ${row["No. TLP"]}<br/>
+            Media: ${row["Media Promosi"]}<br/>
+            Wilayah: ${row["JENIS WILAYAH BANGUNAN"]}<br/>
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank">🧭 Rute ke Lokasi</a>
+          `;
+
+          marker.bindPopup(popupContent);
+
+          // Sidebar list item
+          const item = document.createElement('div');
+          item.style.marginBottom = '8px';
+          item.innerHTML = `<b>${row["NAMA USAHA"]}</b><br><small>${row["ALAMAT"]}</small>`;
+          item.style.cursor = 'pointer';
+          item.onclick = () => {
+            map.setView([lat, lon], 16);
+            marker.openPopup();
+            sidebar.hide();
+          };
+          document.getElementById('data-list').appendChild(item);
+        }
+      });
+    });
+</script>
+
+</body>
+</html>
